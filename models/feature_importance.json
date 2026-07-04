@@ -1,0 +1,15 @@
+{
+  "engagement_score": 0.202607,
+  "avg_monthly_spend": 0.111633,
+  "days_since_invoice": 0.106493,
+  "logins_per_week": 0.097905,
+  "plan_tier": 0.08592,
+  "features_used": 0.084051,
+  "account_age_days": 0.078832,
+  "failure_rate": 0.054847,
+  "payment_failure_count": 0.044582,
+  "nps_score": 0.039082,
+  "support_tickets": 0.035189,
+  "invoice_count": 0.034297,
+  "risk_flags": 0.024562
+}

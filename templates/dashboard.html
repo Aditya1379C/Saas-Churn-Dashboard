@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaaS Churn & Engagement Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f0f2f5;
+  color: #1a1a2e;
+}
+
+/* ── Header ── */
+header {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%);
+  color: #fff;
+  padding: 22px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+header h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -.4px; }
+header p  { font-size: .8rem; opacity: .65; margin-top: 3px; }
+
+.run-btn {
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .2s, opacity .2s;
+}
+.run-btn:hover    { background: #c73652; }
+.run-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Log drawer ── */
+#logDrawer {
+  display: none;
+  background: #0d1117;
+  color: #58a6ff;
+  font-family: 'Courier New', monospace;
+  font-size: .78rem;
+  padding: 12px 20px;
+  max-height: 180px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+/* ── Container ── */
+.container { max-width: 1320px; margin: 0 auto; padding: 22px 18px; }
+
+/* ── KPI cards ── */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.kpi {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  border-top: 4px solid var(--accent);
+}
+.kpi__val   { font-size: 1.9rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.kpi__label { font-size: .72rem; color: #6b7280; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+.kpi__sub   { font-size: .75rem; color: #9ca3af; margin-top: 2px; }
+
+/* ── Cards ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.card h3    { font-size: .9rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+.card .sub  { font-size: .72rem; color: #9ca3af; margin-bottom: 12px; }
+
+/* ── Model metrics ── */
+.pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.pill {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: .8rem;
+}
+.pill b { display: block; font-size: 1.15rem; }
+
+/* ── At-risk table ── */
+table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+th {
+  background: #f9fafb; color: #6b7280; font-weight: 600;
+  text-transform: uppercase; font-size: .7rem; letter-spacing: .4px;
+  padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb;
+}
+td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; }
+tr:hover td { background: #fafafa; }
+
+.badge {
+  border-radius: 4px; padding: 2px 7px;
+  font-size: .7rem; font-weight: 600;
+}
+.badge-high { background: #fee2e2; color: #991b1b; }
+.badge-med  { background: #fef3c7; color: #92400e; }
+.badge-low  { background: #d1fae5; color: #065f46; }
+
+/* ── Pipeline log ── */
+#pipelineLog { font-size: .75rem; color: #4b5563; line-height: 1.7; max-height: 120px; overflow-y: auto; }
+
+/* ── No-data placeholder ── */
+.placeholder {
+  text-align: center; padding: 40px 20px;
+  color: #9ca3af; font-size: .9rem;
+}
+.placeholder b { display: block; font-size: 1.1rem; color: #6b7280; margin-bottom: 6px; }
+
+@media (max-width: 1024px) {
+  .kpis, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .kpis, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SaaS Churn &amp; Engagement Dashboard</h1>
+    <p id="headerSub">Loading data…</p>
+  </div>
+  <button class="run-btn" id="runBtn" onclick="runPipeline()">▶ Run Pipeline</button>
+</header>
+
+<div id="logDrawer"></div>
+
+<div class="container">
+
+  <!-- KPI row -->
+  <div class="kpis">
+    <div class="kpi" style="--accent:#6366f1">
+      <div class="kpi__val" id="kpiTotal">—</div>
+      <div class="kpi__label">Total Customers</div>
+    </div>
+    <div class="kpi" style="--accent:#ef4444">
+      <div class="kpi__val" id="kpiChurned">—</div>
+      <div class="kpi__label">Churned</div>
+      <div class="kpi__sub" id="kpiChurnPct"></div>
+    </div>
+    <div class="kpi" style="--accent:#f59e0b">
+      <div class="kpi__val" id="kpiAtRisk">—</div>
+      <div class="kpi__label">At-Risk (prob &gt; 60%)</div>
+    </div>
+    <div class="kpi" style="--accent:#10b981">
+      <div class="kpi__val" id="kpiEng">—</div>
+      <div class="kpi__label">Avg Engagement Score</div>
+    </div>
+    <div class="kpi" style="--accent:#8b5cf6">
+      <div class="kpi__val" id="kpiAuc">—</div>
+      <div class="kpi__label">Model AUC-ROC</div>
+      <div class="kpi__sub" id="kpiModel"></div>
+    </div>
+  </div>
+
+  <!-- Row 1: Churn by plan + churn by risk flags -->
+  <div class="grid-2">
+    <div class="card">
+      <h3>Churn Rate by Plan</h3>
+      <p class="sub">% of customers who cancelled per subscription tier</p>
+      <div id="chartPlan" style="height:260px"></div>
+    </div>
+    <div class="card">
+      <h3>Churn Rate by Risk Flag Count</h3>
+      <p class="sub">Each flag = one risk signal (low logins, high tickets, NPS detractor…)</p>
+      <div id="chartFlags" style="height:260px"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Prob distribution + feature importance + model card -->
+  <div class="grid-3">
+    <div class="card">
+      <h3>Churn Probability Distribution</h3>
+      <p class="sub">Model-predicted risk across all active customers</p>
+      <div id="chartDist" style="height:220px"></div>
+    </div>
+    <div class="card">
+      <h3>Feature Importance</h3>
+      <p class="sub">What drives churn prediction most</p>
+      <div id="chartImportance" style="height:220px"></div>
+    </div>
+    <div class="card">
+      <h3>Model Performance</h3>
+      <p class="sub" id="modelSubtitle">—</p>
+      <div class="pill-row" id="modelPills"></div>
+      <div id="modelDetail" style="font-size:.78rem;color:#6b7280;line-height:1.8;"></div>
+    </div>
+  </div>
+
+  <!-- At-risk table -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h3>Top At-Risk Active Customers</h3>
+    <p class="sub">Highest churn probability among non-churned customers — intervention candidates</p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Customer ID</th>
+            <th>Name</th>
+            <th>Plan</th>
+            <th>Logins/wk</th>
+            <th>Features</th>
+            <th>Tickets</th>
+            <th>NPS</th>
+            <th>Eng. Score</th>
+            <th>Churn Prob</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody id="atRiskBody">
+          <tr><td colspan="10" class="placeholder"><b>No data yet</b>Run the pipeline to load customers.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pipeline log card -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h3>Pipeline Log</h3>
+    <p class="sub">Output from the last pipeline run</p>
+    <div id="pipelineLog">Idle — click "Run Pipeline" to scrape, clean, and retrain.</div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+const CFG    = { displayModeBar: false, responsive: true };
+const LAYOUT = (extra = {}) => Object.assign({
+  margin: { l: 42, r: 16, t: 10, b: 40 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  'rgba(0,0,0,0)',
+  font: { family: 'system-ui', size: 11, color: '#374151' },
+  xaxis: { gridcolor: '#f3f4f6', zerolinecolor: '#e5e7eb' },
+  yaxis: { gridcolor: '#f3f4f6', zerolinecolor: '#e5e7eb' },
+}, extra);
+
+const PLAN_COLORS  = { Free: '#6366f1', Starter: '#f59e0b', Pro: '#10b981', Enterprise: '#8b5cf6' };
+const RISK_PALETTE = ['#10b981','#84cc16','#f59e0b','#f97316','#ef4444','#991b1b'];
+
+let pollTimer = null;
+
+// ── Load & render ─────────────────────────────────────────────────────────────
+
+async function loadData() {
+  try {
+    const res  = await fetch('/api/data');
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    console.error('Failed to load data:', e);
+  }
+}
+
+function render(d) {
+  const k = d.kpis;
+  document.getElementById('kpiTotal').textContent    = k.total.toLocaleString();
+  document.getElementById('kpiChurned').textContent  = k.churned.toLocaleString();
+  document.getElementById('kpiChurnPct').textContent = `${k.churn_pct}% churn rate`;
+  document.getElementById('kpiAtRisk').textContent   = k.at_risk.toLocaleString();
+  document.getElementById('kpiEng').textContent      = k.avg_engagement;
+  document.getElementById('kpiAuc').textContent      = d.metrics.auc_roc ?? '—';
+  document.getElementById('kpiModel').textContent    = d.metrics.model ?? '';
+  document.getElementById('headerSub').textContent   =
+    `${k.total} customers · Stripe API · ${d.metrics.model ?? 'No model'} classifier`;
+
+  renderPlanChart(d.churn_by_plan);
+  renderFlagsChart(d.churn_by_flags);
+  renderDistChart(d.prob_histogram);
+  renderImportanceChart(d.importance);
+  renderModelCard(d.metrics);
+  renderTable(d.at_risk_table);
+}
+
+function renderPlanChart(data) {
+  if (!data || !data.length) return;
+  Plotly.newPlot('chartPlan', [{
+    type: 'bar',
+    x: data.map(d => d.plan),
+    y: data.map(d => d.churn_pct),
+    text: data.map(d => `${d.churn_pct}%`),
+    textposition: 'outside',
+    marker: { color: data.map(d => PLAN_COLORS[d.plan] || '#6366f1') },
+    customdata: data.map(d => [d.total, d.churned, d.avg_eng]),
+    hovertemplate: '<b>%{x}</b><br>Churn: %{y}%<br>Users: %{customdata[0]}<br>Churned: %{customdata[1]}<br>Avg Eng: %{customdata[2]}<extra></extra>',
+  }], LAYOUT({
+    yaxis: { title: 'Churn Rate (%)', range: [0, Math.max(...data.map(d => d.churn_pct)) * 1.3] },
+    xaxis: { title: 'Subscription Plan' },
+  }), CFG);
+}
+
+function renderFlagsChart(data) {
+  if (!data || !data.length) return;
+  Plotly.newPlot('chartFlags', [{
+    type: 'bar',
+    x: data.map(d => `${d.flags} flag${d.flags !== 1 ? 's' : ''}`),
+    y: data.map(d => d.churn_pct),
+    text: data.map(d => `${d.churn_pct}%`),
+    textposition: 'outside',
+    marker: { color: data.map(d => RISK_PALETTE[Math.min(d.flags, 5)]) },
+    customdata: data.map(d => d.total),
+    hovertemplate: '<b>%{x}</b><br>Churn: %{y}%<br>Users: %{customdata}<extra></extra>',
+  }], LAYOUT({
+    yaxis: { title: 'Churn Rate (%)', range: [0, Math.max(...data.map(d => d.churn_pct)) * 1.3] },
+    xaxis: { title: 'Risk Flags' },
+  }), CFG);
+}
+
+function renderDistChart(hist) {
+  if (!hist || !hist.length) return;
+  const bins  = hist.map((_, i) => ((i + 0.5) / 20).toFixed(2));
+  const colors = hist.map((_, i) => {
+    const v = (i + 0.5) / 20;
+    return v > 0.6 ? '#ef4444' : v > 0.4 ? '#f59e0b' : '#10b981';
+  });
+  Plotly.newPlot('chartDist', [{
+    type: 'bar', x: bins, y: hist,
+    marker: { color: colors },
+    hovertemplate: 'Prob ~%{x}<br>Customers: %{y}<extra></extra>',
+  }], LAYOUT({
+    yaxis: { title: 'Customers' },
+    xaxis: { title: 'Predicted Churn Probability' },
+  }), CFG);
+}
+
+function renderImportanceChart(imp) {
+  if (!imp || !Object.keys(imp).length) return;
+  const entries = Object.entries(imp).slice(0, 10);
+  const labels  = entries.map(([k]) => k.replace(/_/g, ' '));
+  const values  = entries.map(([, v]) => v);
+  Plotly.newPlot('chartImportance', [{
+    type: 'bar', orientation: 'h',
+    x: values, y: labels,
+    marker: { color: '#6366f1' },
+    hovertemplate: '%{y}: %{x:.4f}<extra></extra>',
+  }], LAYOUT({
+    margin: { l: 130, r: 16, t: 10, b: 40 },
+    xaxis: { title: 'Importance' },
+    yaxis: { autorange: 'reversed' },
+  }), CFG);
+}
+
+function renderModelCard(m) {
+  if (!m || !m.auc_roc) {
+    document.getElementById('modelSubtitle').textContent = 'No model trained yet';
+    return;
+  }
+  document.getElementById('modelSubtitle').textContent =
+    `${m.model} · trained on ${m.n_train} customers`;
+
+  const pills = [
+    ['AUC-ROC', m.auc_roc],
+    ['CV AUC', `${m.cv_auc_mean} ±${m.cv_auc_std}`],
+    ['Precision', m.precision],
+    ['Recall', m.recall],
+    ['F1', m.f1],
+    ['Accuracy', m.accuracy],
+  ];
+  document.getElementById('modelPills').innerHTML = pills
+    .map(([l, v]) => `<div class="pill"><b>${v}</b>${l}</div>`)
+    .join('');
+
+  document.getElementById('modelDetail').innerHTML =
+    `Test set: ${m.n_test} customers<br>` +
+    `Churn rate: ${m.churn_rate_pct}%<br>` +
+    `Features: engagement score · risk flags · plan tier · logins · NPS · payment failures`;
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('atRiskBody');
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="placeholder"><b>No at-risk customers found</b>Run the full pipeline first.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const prob  = r.churn_prob != null ? (r.churn_prob * 100).toFixed(1) + '%' : '—';
+    const flags = r.risk_flags ?? 0;
+    const badge = flags >= 4 ? 'high' : flags >= 2 ? 'med' : 'low';
+    const label = flags >= 4 ? 'HIGH' : flags >= 2 ? 'MED'  : 'LOW';
+    return `<tr>
+      <td style="font-family:monospace;font-size:.72rem">${r.customer_id}</td>
+      <td>${r.name || '—'}</td>
+      <td><span class="badge" style="background:${PLAN_COLORS[r.plan]||'#eee'};color:#fff">${r.plan}</span></td>
+      <td>${r.logins_per_week ?? '—'}</td>
+      <td>${r.features_used ?? '—'}</td>
+      <td>${r.support_tickets ?? '—'}</td>
+      <td>${r.nps_score ?? '—'}</td>
+      <td>${r.engagement_score != null ? Number(r.engagement_score).toFixed(1) : '—'}</td>
+      <td><b>${prob}</b></td>
+      <td><span class="badge badge-${badge}">${label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Pipeline runner ───────────────────────────────────────────────────────────
+
+async function runPipeline() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running…';
+
+  const drawer = document.getElementById('logDrawer');
+  drawer.style.display = 'block';
+  drawer.innerHTML = '';
+
+  const res = await fetch('/api/run', { method: 'POST' });
+  if (res.status === 409) {
+    alert('Pipeline already running.');
+    btn.disabled = false;
+    btn.textContent = '▶ Run Pipeline';
+    return;
+  }
+
+  pollTimer = setInterval(pollStatus, 1200);
+}
+
+async function pollStatus() {
+  try {
+    const res  = await fetch('/api/status');
+    const data = await res.json();
+
+    const drawer  = document.getElementById('logDrawer');
+    const logDiv  = document.getElementById('pipelineLog');
+    const logText = data.log.join('\n');
+    drawer.innerHTML  = logText.replace(/\n/g, '<br>');
+    logDiv.textContent = logText || 'Running…';
+    drawer.scrollTop  = drawer.scrollHeight;
+
+    if (!data.running) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      const btn = document.getElementById('runBtn');
+      btn.disabled    = false;
+      btn.textContent = '▶ Run Pipeline';
+
+      if (data.exit_code === 0) {
+        drawer.innerHTML += '<br><span style="color:#10b981">✓ Pipeline complete</span>';
+        await loadData();   // refresh charts
+      } else {
+        drawer.innerHTML += `<br><span style="color:#ef4444">✗ Pipeline failed (exit ${data.exit_code})</span>`;
+      }
+    }
+  } catch (e) {
+    console.error('Poll error:', e);
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+
+</body>
+</html>

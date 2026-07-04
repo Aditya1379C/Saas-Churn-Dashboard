@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+*.pkl
+data/customers.db
+data/customers.csv
+logs/
+models/churn_model.pkl
+models/encoders.pkl
+.DS_Store

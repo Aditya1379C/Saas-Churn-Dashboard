@@ -1,0 +1,15 @@
+{
+  "model": "RandomForest",
+  "n_samples": 520,
+  "n_train": 390,
+  "n_test": 130,
+  "churn_rate_pct": 31.92,
+  "decision_threshold": 0.41,
+  "auc_roc": 0.8747,
+  "cv_auc_mean": 0.805,
+  "cv_auc_std": 0.0234,
+  "accuracy": 0.7538,
+  "precision": 0.5781,
+  "recall": 0.881,
+  "f1": 0.6981
+}
