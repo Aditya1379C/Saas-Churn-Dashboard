@@ -86,8 +86,43 @@ header p  { font-size: .8rem; opacity: .65; margin-top: 3px; }
   padding: 18px 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
 }
-.card h3    { font-size: .9rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+.card h3    { font-size: .9rem; font-weight: 600; color: #374151; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
 .card .sub  { font-size: .72rem; color: #9ca3af; margin-bottom: 12px; }
+
+/* ── Info icon + explainer modal ── */
+.info-btn {
+  flex-shrink: 0; margin-left: auto;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid #d1d5db; background: transparent; color: #9ca3af;
+  font-size: 11px; font-weight: 700; font-style: italic; font-family: Georgia, serif;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1; transition: all .15s;
+}
+.info-btn:hover { border-color: #6366f1; color: #6366f1; background: #eef2ff; }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(15,23,42,.35);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  z-index: 100; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #fff; border-radius: 14px; padding: 24px 26px;
+  max-width: 440px; width: 100%; position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.modal-title { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; padding-right: 24px; }
+.modal-body  { font-size: .85rem; color: #4b5563; line-height: 1.65; }
+.modal-body strong { color: #1a1a2e; font-weight: 600; }
+.modal-close {
+  position: absolute; top: 14px; right: 15px;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: #f3f4f6; color: #6b7280;
+  font-size: 14px; cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center; transition: background .15s;
+}
+.modal-close:hover { background: #e5e7eb; }
 
 /* ── Model metrics ── */
 .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
@@ -180,12 +215,12 @@ tr:hover td { background: #fafafa; }
   <!-- Row 1: Churn by plan + churn by risk flags -->
   <div class="grid-2">
     <div class="card">
-      <h3>Churn Rate by Plan</h3>
+      <h3>Churn Rate by Plan <button class="info-btn" onclick="showInfo('plan')">i</button></h3>
       <p class="sub">% of customers who cancelled per subscription tier</p>
       <div id="chartPlan" style="height:260px"></div>
     </div>
     <div class="card">
-      <h3>Churn Rate by Risk Flag Count</h3>
+      <h3>Churn Rate by Risk Flag Count <button class="info-btn" onclick="showInfo('flags')">i</button></h3>
       <p class="sub">Each flag = one risk signal (low logins, high tickets, NPS detractor…)</p>
       <div id="chartFlags" style="height:260px"></div>
     </div>
@@ -194,17 +229,17 @@ tr:hover td { background: #fafafa; }
   <!-- Row 2: Prob distribution + feature importance + model card -->
   <div class="grid-3">
     <div class="card">
-      <h3>Churn Probability Distribution</h3>
+      <h3>Churn Probability Distribution <button class="info-btn" onclick="showInfo('dist')">i</button></h3>
       <p class="sub">Model-predicted risk across all active customers</p>
       <div id="chartDist" style="height:220px"></div>
     </div>
     <div class="card">
-      <h3>Feature Importance</h3>
+      <h3>Feature Importance <button class="info-btn" onclick="showInfo('importance')">i</button></h3>
       <p class="sub">What drives churn prediction most</p>
       <div id="chartImportance" style="height:220px"></div>
     </div>
     <div class="card">
-      <h3>Model Performance</h3>
+      <h3>Model Performance <button class="info-btn" onclick="showInfo('model')">i</button></h3>
       <p class="sub" id="modelSubtitle">—</p>
       <div class="pill-row" id="modelPills"></div>
       <div id="modelDetail" style="font-size:.78rem;color:#6b7280;line-height:1.8;"></div>
@@ -213,7 +248,7 @@ tr:hover td { background: #fafafa; }
 
   <!-- At-risk table -->
   <div class="card" style="margin-bottom: 24px;">
-    <h3>Top At-Risk Active Customers</h3>
+    <h3>Top At-Risk Active Customers <button class="info-btn" onclick="showInfo('table')">i</button></h3>
     <p class="sub">Highest churn probability among non-churned customers — intervention candidates</p>
     <div style="overflow-x:auto">
       <table>
@@ -246,6 +281,15 @@ tr:hover td { background: #fafafa; }
   </div>
 
 </div><!-- /container -->
+
+<!-- Explainer modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeInfo(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="hideInfo()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body"  id="modalBody"></div>
+  </div>
+</div>
 
 <script>
 const CFG    = { displayModeBar: false, responsive: true };
@@ -467,6 +511,70 @@ async function pollStatus() {
     console.error('Poll error:', e);
   }
 }
+
+// ── Chart explainers (info icons) ─────────────────────────────────────────────
+const INFO = {
+  plan: {
+    title: 'Churn Rate by Plan',
+    body: `Share of customers who <strong>cancelled</strong>, split by subscription tier
+      (Free, Starter, Pro, Enterprise). It shows which tiers lose customers fastest, so you
+      can see whether churn is a low-tier problem or reaches paying plans. Hover any bar for
+      the user count, number churned, and average engagement for that tier.`,
+  },
+  flags: {
+    title: 'Churn Rate by Risk Flag Count',
+    body: `Every customer collects a <strong>risk flag</strong> for each warning signal they
+      trip: low logins, high support tickets, an NPS detractor score, repeated payment
+      failures, and similar. This chart shows how the churn rate climbs as those flags stack
+      up, which is why flag count is a fast, human-readable risk proxy.`,
+  },
+  dist: {
+    title: 'Churn Probability Distribution',
+    body: `The model scores every <strong>active</strong> customer with a churn probability
+      from 0 to 1. This histogram counts how many customers fall in each risk band.
+      <strong>Green</strong> is low risk (below 0.4), <strong>amber</strong> is medium, and
+      <strong>red</strong> is high risk (above 0.6): the red bars are who to worry about.`,
+  },
+  importance: {
+    title: 'Feature Importance',
+    body: `How much each engineered feature contributes to the model's predictions. A longer
+      bar means the feature moves the churn prediction more. <strong>Engagement score</strong>
+      is the strongest driver, which tells you product usage predicts churn better than what a
+      customer pays. Useful for deciding where to focus retention effort.`,
+  },
+  model: {
+    title: 'Model Performance',
+    body: `Evaluation metrics for the trained classifier.
+      <strong>AUC-ROC</strong> measures how well the model ranks churners above non-churners
+      (1.0 is perfect, 0.5 is random). <strong>CV AUC</strong> is the 5-fold cross-validated
+      average, a more honest estimate than a single split. <strong>Recall</strong> is the share
+      of real churners the model catches; <strong>precision</strong> is how many flagged
+      customers actually churn. The threshold is tuned to favour recall, since missing a
+      churner costs more than a false alarm.`,
+  },
+  table: {
+    title: 'Top At-Risk Active Customers',
+    body: `Customers who have <strong>not</strong> churned yet, ranked by the model's predicted
+      churn probability. These are your intervention candidates: reach out before they cancel.
+      The <strong>Risk</strong> badge (LOW / MED / HIGH) comes from how many risk flags each
+      customer has accumulated.`,
+  },
+};
+
+function showInfo(key) {
+  const info = INFO[key];
+  if (!info) return;
+  document.getElementById('modalTitle').textContent = info.title;
+  document.getElementById('modalBody').innerHTML     = info.body;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function hideInfo() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+function closeInfo(e) {
+  if (e.target === document.getElementById('modalOverlay')) hideInfo();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideInfo(); });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadData();
