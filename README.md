@@ -9,6 +9,9 @@ classifiers with 5-fold cross-validation, and serves live churn predictions plus
 importance through a Flask dashboard. The whole pipeline is driven by a single CLI and can be
 reproduced locally with no API key required.
 
+For a stage-by-stage technical walkthrough of how it all fits together, see
+**[HOW_IT_WORKS.md](HOW_IT_WORKS.md)**.
+
 ## Key results
 
 | Metric | Value |
