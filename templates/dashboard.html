@@ -71,7 +71,9 @@ header p  { font-size: .8rem; opacity: .65; margin-top: 3px; }
   padding: 18px 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
   border-top: 4px solid var(--accent);
+  position: relative;
 }
+.kpi .info-btn { position: absolute; top: 10px; right: 10px; margin: 0; }
 .kpi__val   { font-size: 1.9rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
 .kpi__label { font-size: .72rem; color: #6b7280; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
 .kpi__sub   { font-size: .75rem; color: #9ca3af; margin-top: 2px; }
@@ -189,23 +191,28 @@ tr:hover td { background: #fafafa; }
   <!-- KPI row -->
   <div class="kpis">
     <div class="kpi" style="--accent:#6366f1">
+      <button class="info-btn" onclick="showInfo('kpiTotal')">i</button>
       <div class="kpi__val" id="kpiTotal">—</div>
       <div class="kpi__label">Total Customers</div>
     </div>
     <div class="kpi" style="--accent:#ef4444">
+      <button class="info-btn" onclick="showInfo('kpiChurned')">i</button>
       <div class="kpi__val" id="kpiChurned">—</div>
       <div class="kpi__label">Churned</div>
       <div class="kpi__sub" id="kpiChurnPct"></div>
     </div>
     <div class="kpi" style="--accent:#f59e0b">
+      <button class="info-btn" onclick="showInfo('kpiAtRisk')">i</button>
       <div class="kpi__val" id="kpiAtRisk">—</div>
       <div class="kpi__label">At-Risk (prob &gt; 60%)</div>
     </div>
     <div class="kpi" style="--accent:#10b981">
+      <button class="info-btn" onclick="showInfo('kpiEng')">i</button>
       <div class="kpi__val" id="kpiEng">—</div>
       <div class="kpi__label">Avg Engagement Score</div>
     </div>
     <div class="kpi" style="--accent:#8b5cf6">
+      <button class="info-btn" onclick="showInfo('kpiAuc')">i</button>
       <div class="kpi__val" id="kpiAuc">—</div>
       <div class="kpi__label">Model AUC-ROC</div>
       <div class="kpi__sub" id="kpiModel"></div>
@@ -514,6 +521,38 @@ async function pollStatus() {
 
 // ── Chart explainers (info icons) ─────────────────────────────────────────────
 const INFO = {
+  kpiTotal: {
+    title: 'Total Customers',
+    body: `The full customer base loaded from the billing data, counting both
+      <strong>active</strong> and <strong>churned</strong> accounts. It is the denominator for
+      the churn rate and every per-segment breakdown below.`,
+  },
+  kpiChurned: {
+    title: 'Churned',
+    body: `Customers who have <strong>cancelled</strong> their subscription. The percentage
+      underneath is the <strong>churn rate</strong>, this count divided by total customers,
+      which is the headline health number for the business.`,
+  },
+  kpiAtRisk: {
+    title: 'At-Risk Customers',
+    body: `Active customers the model scores above a <strong>60% churn probability</strong>.
+      These are still paying but likely to leave soon, so this is the priority list for
+      retention outreach. The full ranked list is in the At-Risk table below.`,
+  },
+  kpiEng: {
+    title: 'Average Engagement Score',
+    body: `The mean <strong>engagement score</strong> across all customers. Engagement is a
+      composite of product activity (logins per week, features used, account activity), so a
+      higher number means a stickier, healthier base. It is also the model's strongest churn
+      predictor.`,
+  },
+  kpiAuc: {
+    title: 'Model AUC-ROC',
+    body: `The headline accuracy of the churn model. <strong>AUC-ROC</strong> measures how well
+      it ranks churners above non-churners: <strong>1.0</strong> is perfect, <strong>0.5</strong>
+      is random guessing. See the Model Performance card for the cross-validated score and the
+      full metric set.`,
+  },
   plan: {
     title: 'Churn Rate by Plan',
     body: `Share of customers who <strong>cancelled</strong>, split by subscription tier
