@@ -8,3 +8,5 @@ logs/
 models/churn_model.pkl
 models/encoders.pkl
 .DS_Store
+
+.backup_pre_fix/
